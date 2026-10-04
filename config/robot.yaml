@@ -1,0 +1,11 @@
+# Robot configuration — see docs_camera/CONFIGURATION.md
+# (communication/protocol settings live in communication.yaml)
+pick_z: -50.0              # constant pick height (mm), robot frame
+target_selection: nearest  # nearest | leftmost | rightmost | highest_confidence
+dedup_radius_mm: 15.0      # detections within this radius count as the same part
+picked_cooldown_s: 3.0     # suppress a picked location this long (arm retract/removal)
+workspace:                 # robot workspace limits (mm); targets outside are rejected
+  x_min: -200.0
+  x_max: 200.0
+  y_min: -200.0
+  y_max: 200.0

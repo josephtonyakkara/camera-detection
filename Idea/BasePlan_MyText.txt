@@ -1,0 +1,14 @@
+I would like to program in python program to read data from a camera adn use the coordinates from the  the image to pick and place parts. My main goal ist to identify the location through live processin of the video stream. ideadyy the part would not be moving and will be staying in static location , it also needs to count the number of parts that there in the picture and then gve coordinatees from the  picture. the main goal is to itegrate it into a delta robot, apart from that, i would like to have folder where i give a set of parts that beeds to be picked up, if i delete adn new set of pictures that needs to processed, for example  i have round parts and  i take that, i change the pictures from round part to sware or something else then , it automatically setlects the that part.
+
+Mmake sure the code follows standard structurig whre the codes are modulararised and akso create  astructureed plan with milestones on how to resolve this .
+
+make sure theere is docs_ camera folder created within here
+
+indicate how the code work and intetract with each other,
+architecture of the system, 
+based on the the architecture the rules thst need to be follwed for an AI() tool to use as an guide (also md files needs to be updated when the changes are made), how live cammera is connected to back end and outputs the data, the configurations like the  names, pathes, setup adn key infrastructire that needs be in place fro the system to work
+
+make sure that there a seperate md file what mentions the all the files handle the finction within it to have a better understanding. make sure the function within the each file is presented in table format for better udrstanding. if a function is called that is not with this file, also metnion what it does. the structure and how the data is returned so that the next itme AI can easily intepert it
+
+also make an md file on for updates, so each time when new change is maed it is recoded to undesrtading purpose
+create a milestone plan on how its going to be done

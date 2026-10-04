@@ -1,0 +1,7 @@
+# Vision configuration — see docs_camera/CONFIGURATION.md
+detector: opencv           # detector implementation: opencv (yolo planned)
+active_part: round_part    # folder name under parts_dir; switching this changes the target part
+parts_dir: parts           # reference dataset root, relative to project root
+confidence_threshold: 0.6
+processing_mode: live      # live | single_frame | debug
+detection_params: {}       # detector-specific tuning parameters

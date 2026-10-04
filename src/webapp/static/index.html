@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vision System Dashboard</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #14171c; color: #e6e6e6; margin: 0; padding: 1.5rem; }
+    h1 { font-size: 1.2rem; margin: 0 0 1rem; }
+    .layout { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    img { max-width: 800px; width: 100%; border: 1px solid #333; border-radius: 6px; background: #000; }
+    .panel { min-width: 260px; }
+    .stat { font-size: 2rem; font-weight: 700; }
+    .label { color: #9aa4b2; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+    table { border-collapse: collapse; width: 100%; margin-top: .75rem; font-size: .85rem; }
+    th, td { text-align: left; padding: .25rem .5rem; border-bottom: 1px solid #2a2f38; }
+    .ok { color: #4ade80; } .bad { color: #f87171; }
+    nav { margin-bottom: 1rem; display: flex; gap: 1rem; border-bottom: 1px solid #2a2f38; padding-bottom: .75rem; }
+    nav a { color: #9aa4b2; text-decoration: none; font-size: .9rem; }
+    nav a.active { color: #e6e6e6; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" class="active">Live</a>
+    <a href="/config">Configuration</a>
+    <a href="/communication">Communication</a>
+  </nav>
+  <h1>Vision System — Live</h1>
+  <div class="layout">
+    <div><img src="/stream" alt="live camera stream"></div>
+    <div class="panel">
+      <div class="label">Detected parts</div>
+      <div class="stat" id="count">–</div>
+      <div class="label">Pipeline</div>
+      <div id="pipeline">–</div>
+      <div class="label">Robot</div>
+      <div id="robot">–</div>
+      <div class="label">Pick in progress</div>
+      <div id="pending">–</div>
+      <div class="label">FPS</div>
+      <div id="fps">–</div>
+      <table id="targets-table">
+        <thead><tr><th>Target</th><th>X</th><th>Y</th><th>Z</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    async function refresh() {
+      try {
+        const s = await (await fetch('/api/status')).json();
+        document.getElementById('count').textContent = s.detection_count;
+        document.getElementById('fps').textContent = s.fps;
+        document.getElementById('pipeline').innerHTML =
+          s.running ? '<span class="ok">running</span>' : '<span class="bad">stopped</span>';
+        document.getElementById('robot').textContent = s.robot_state;
+        document.getElementById('pending').textContent =
+          s.pending_target_id != null ? 'T' + s.pending_target_id : 'none';
+        document.querySelector('#targets-table tbody').innerHTML = (s.targets || [])
+          .map(t => `<tr><td>T${t.target_id}</td><td>${t.x}</td><td>${t.y}</td><td>${t.z}</td></tr>`)
+          .join('');
+      } catch (e) { /* server restarting; keep polling */ }
+    }
+    setInterval(refresh, 500);
+    refresh();
+  </script>
+</body>
+</html>

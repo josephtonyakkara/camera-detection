@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Communication — Vision System</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #14171c; color: #e6e6e6; margin: 0; padding: 1.5rem; }
+    nav { margin-bottom: 1rem; display: flex; gap: 1rem; border-bottom: 1px solid #2a2f38; padding-bottom: .75rem; }
+    nav a { color: #9aa4b2; text-decoration: none; font-size: .9rem; }
+    nav a.active { color: #e6e6e6; font-weight: 600; }
+    h1 { font-size: 1.2rem; margin: 0 0 1rem; }
+    h2 { font-size: .9rem; color: #9aa4b2; text-transform: uppercase; letter-spacing: .05em; margin: 1.4rem 0 .5rem; }
+    .badge { padding: .2rem .6rem; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+    .badge.up { background: #14532d; color: #4ade80; }
+    .badge.down { background: #581c1c; color: #f87171; }
+    .card { background: #1a1f29; border: 1px solid #2a2f38; border-radius: 8px; padding: 1rem; max-width: 900px; }
+    .kv { display: grid; grid-template-columns: 180px 1fr; gap: .3rem .8rem; font-size: .88rem; }
+    .kv .k { color: #9aa4b2; }
+    table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+    th, td { text-align: left; padding: .3rem .6rem; border-bottom: 1px solid #2a2f38; }
+    th { color: #9aa4b2; font-weight: 500; }
+    code { background: #0f1319; padding: .1rem .35rem; border-radius: 4px; font-size: .82rem; }
+    button.copy { background: #1f2430; border: 1px solid #2a2f38; color: #9aa4b2; border-radius: 4px; cursor: pointer; font-size: .7rem; padding: .1rem .4rem; margin-left: .4rem; }
+    .flow { display: flex; gap: .6rem; align-items: center; margin: .6rem 0; flex-wrap: wrap; }
+    .step { padding: .5rem .9rem; border-radius: 8px; border: 1px solid #2a2f38; background: #0f1319; font-size: .85rem; color: #6b7280; }
+    .step.on { border-color: #4ade80; color: #4ade80; font-weight: 600; }
+    .arrow { color: #4b5563; }
+    .muted { color: #6b7280; font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Live</a>
+    <a href="/config">Configuration</a>
+    <a href="/communication" class="active">Communication</a>
+  </nav>
+  <h1>Communication <span id="server-badge" class="badge down">–</span></h1>
+
+  <div class="card">
+    <h2 style="margin-top:0">Connection</h2>
+    <div class="kv" id="connection"></div>
+    <div id="urls" style="margin-top:.5rem"></div>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <h2 style="margin-top:0">Handshake monitor</h2>
+    <div class="flow" id="flow">
+      <span class="step" id="st-request">TargetRequest</span><span class="arrow">→</span>
+      <span class="step" id="st-ready">TargetReady</span><span class="arrow">→</span>
+      <span class="step" id="st-complete">PickComplete</span>
+    </div>
+    <div class="kv" id="handshake"></div>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <h2 style="margin-top:0">Nodes</h2>
+    <table>
+      <thead><tr><th>Browse name</th><th>NodeId</th><th>Type</th><th>Written by</th><th>Live value</th></tr></thead>
+      <tbody id="nodes"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <h2 style="margin-top:0">Connected clients</h2>
+    <table>
+      <thead><tr><th>#</th><th>Client address</th></tr></thead>
+      <tbody id="clients"></tbody>
+    </table>
+    <div class="muted" id="no-clients" style="display:none">No clients connected.</div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const STATUS_NAMES = { 0: 'starting', 1: 'ready', 2: 'target_ready' };
+
+    function kv(entries) {
+      return entries.map(([k, v]) => `<span class="k">${k}</span><span>${v}</span>`).join('');
+    }
+
+    async function refresh() {
+      let info;
+      try { info = await (await fetch('/api/communication')).json(); }
+      catch (e) { return; }
+
+      const up = info.server_running;
+      const badge = $('server-badge');
+      badge.textContent = up ? 'server running' : 'server down';
+      badge.className = 'badge ' + (up ? 'up' : 'down');
+
+      if (!up) {
+        $('connection').innerHTML = kv([
+          ['Interface', info.interface ?? '–'],
+          ['Info', info.reason ?? 'not running'],
+          ['Configured endpoint', info.endpoint ?? '–'],
+        ]);
+        $('urls').innerHTML = '';
+        $('nodes').innerHTML = '';
+        $('clients').innerHTML = '';
+        $('no-clients').style.display = 'block';
+        return;
+      }
+
+      $('connection').innerHTML = kv([
+        ['Endpoint (bind)', `<code>${info.endpoint}</code>`],
+        ['Namespace', `<code>${info.namespace}</code> (index ${info.namespace_index})`],
+        ['Security', info.security],
+        ['Mode', info.mode],
+        ['Uptime', info.uptime_s != null ? Math.round(info.uptime_s) + ' s' : '–'],
+      ]);
+      $('urls').innerHTML = '<span class="k" style="color:#9aa4b2;font-size:.88rem">Connect from a client:</span><br>' +
+        info.connect_urls.map(u =>
+          `<code>${u}</code><button class="copy" onclick="navigator.clipboard.writeText('${u}')">copy</button>`
+        ).join('<br>');
+
+      const values = Object.fromEntries(info.nodes.map(n => [n.browse_name, n.value]));
+      $('st-request').className = 'step' + (values.TargetRequest ? ' on' : '');
+      $('st-ready').className = 'step' + (values.TargetReady ? ' on' : '');
+      $('st-complete').className = 'step' + (values.PickComplete ? ' on' : '');
+      $('handshake').innerHTML = kv([
+        ['StatusCode', `${values.StatusCode} (${STATUS_NAMES[values.StatusCode] ?? '?'})`],
+        ['Target', `T${values.TargetId}  X=${values.TargetX}  Y=${values.TargetY}  Z=${values.TargetZ}`],
+        ['DetectedCount', values.DetectedCount],
+      ]);
+
+      $('nodes').innerHTML = info.nodes.map(n => `
+        <tr><td>${n.browse_name}</td><td><code>${n.node_id}</code></td>
+            <td>${n.data_type}</td><td>${n.writer}</td><td>${JSON.stringify(n.value)}</td></tr>`).join('');
+
+      $('clients').innerHTML = info.clients.map((c, i) => `<tr><td>${i + 1}</td><td>${c.address}</td></tr>`).join('');
+      $('no-clients').style.display = info.clients.length ? 'none' : 'block';
+    }
+
+    refresh();
+    setInterval(refresh, 1000);
+  </script>
+</body>
+</html>

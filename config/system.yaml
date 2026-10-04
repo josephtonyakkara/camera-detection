@@ -1,0 +1,7 @@
+# System configuration — see docs_camera/CONFIGURATION.md
+log_level: INFO
+log_dir: logs
+calibration_file: calibration/homography.yaml
+web_enabled: true
+web_host: 0.0.0.0
+web_port: 8080   # 8000 is reserved by Windows (excluded port range)

@@ -1,0 +1,10 @@
+# Camera configuration — see docs_camera/CONFIGURATION.md
+type: usb              # camera implementation: usb (more types in later milestones)
+device_index: 0        # external USB camera (run scripts/camera_check.py --list to re-probe)
+backend: dshow         # dshow avoids the Windows MSMF slow-open hang; auto|dshow|msmf|v4l2
+width: 1280
+height: 720
+fps: 30
+warmup_frames: 5       # discarded after open so auto-exposure settles
+reconnect_attempts: 3
+reconnect_delay_s: 2.0

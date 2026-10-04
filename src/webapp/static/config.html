@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Configuration — Vision System</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #14171c; color: #e6e6e6; margin: 0; padding: 1.5rem; }
+    nav { margin-bottom: 1rem; display: flex; gap: 1rem; border-bottom: 1px solid #2a2f38; padding-bottom: .75rem; }
+    nav a { color: #9aa4b2; text-decoration: none; font-size: .9rem; }
+    nav a.active { color: #e6e6e6; font-weight: 600; }
+    h1 { font-size: 1.2rem; margin: 0 0 1rem; }
+    .statusbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .badge { padding: .2rem .6rem; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+    .badge.running { background: #14532d; color: #4ade80; }
+    .badge.error { background: #581c1c; color: #f87171; }
+    .badge.starting, .badge.stopped { background: #44403c; color: #fbbf24; }
+    .banner { background: #78350f; color: #fde68a; padding: .4rem .8rem; border-radius: 6px; font-size: .85rem; display: none; }
+    button { background: #2563eb; border: 0; color: white; padding: .45rem 1rem; border-radius: 6px; cursor: pointer; font-size: .85rem; }
+    button:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+    button.danger { background: #b45309; }
+    .tabs { display: flex; gap: .4rem; margin-bottom: .75rem; flex-wrap: wrap; }
+    .tabs button { background: #1f2430; color: #9aa4b2; }
+    .tabs button.active { background: #2563eb; color: white; }
+    .subtabs { margin-bottom: .75rem; }
+    .subtabs button { background: transparent; border: 1px solid #2a2f38; color: #9aa4b2; }
+    .subtabs button.active { border-color: #2563eb; color: #e6e6e6; }
+    .editor { max-width: 760px; background: #1a1f29; border: 1px solid #2a2f38; border-radius: 8px; padding: 1rem; }
+    .section-title { color: #9aa4b2; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; margin: 1rem 0 .4rem; }
+    .field { display: grid; grid-template-columns: 220px 1fr; align-items: center; gap: .6rem; padding: .3rem 0; }
+    .field label { font-size: .85rem; }
+    .field input[type=text], .field input[type=number], textarea {
+      background: #0f1319; border: 1px solid #2a2f38; color: #e6e6e6; border-radius: 5px; padding: .35rem .5rem; font-size: .85rem; width: 100%;
+      font-family: ui-monospace, monospace;
+    }
+    textarea.raw { min-height: 320px; white-space: pre; }
+    .hint { color: #6b7280; font-size: .72rem; }
+    .msg { margin-top: .75rem; font-size: .85rem; padding: .45rem .7rem; border-radius: 6px; display: none; }
+    .msg.ok { display: block; background: #14532d; color: #86efac; }
+    .msg.err { display: block; background: #581c1c; color: #fca5a5; white-space: pre-wrap; }
+    .actions { margin-top: 1rem; display: flex; gap: .6rem; align-items: center; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Live</a>
+    <a href="/config" class="active">Configuration</a>
+    <a href="/communication">Communication</a>
+  </nav>
+  <h1>Configuration</h1>
+
+  <div class="statusbar">
+    <span>Pipeline: <span id="state" class="badge stopped">–</span></span>
+    <span id="banner" class="banner">Restart required for these changes to be implemented</span>
+    <button id="restart-btn" class="danger" disabled>Restart pipeline</button>
+  </div>
+
+  <div class="tabs" id="file-tabs"></div>
+  <div class="subtabs tabs">
+    <button id="view-form" class="active">Form</button>
+    <button id="view-raw">Raw YAML</button>
+  </div>
+
+  <div class="editor">
+    <div id="form-view"></div>
+    <div id="raw-view" style="display:none">
+      <textarea id="raw-text" class="raw" spellcheck="false"></textarea>
+      <div class="hint">Raw mode preserves comments. Form save rewrites the file without comments.</div>
+    </div>
+    <div class="actions">
+      <button id="save-btn">Save</button>
+      <span class="hint">Changes apply after restart.</span>
+    </div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <script>
+    let schema = {}, configs = {}, activeFile = 'camera', rawMode = false;
+
+    const $ = id => document.getElementById(id);
+
+    async function loadAll() {
+      [schema, configs] = await Promise.all([
+        fetch('/api/config/schema').then(r => r.json()),
+        fetch('/api/config').then(r => r.json()),
+      ]);
+      renderFileTabs();
+      renderEditor();
+    }
+
+    function renderFileTabs() {
+      $('file-tabs').innerHTML = Object.keys(schema)
+        .map(f => `<button data-file="${f}" class="${f === activeFile ? 'active' : ''}">${f}.yaml</button>`)
+        .join('');
+      $('file-tabs').querySelectorAll('button').forEach(b =>
+        b.onclick = () => { activeFile = b.dataset.file; clearMsg(); renderFileTabs(); renderEditor(); });
+    }
+
+    function inputFor(section, field) {
+      const id = `f_${section}_${field.name}`;
+      const value = field.current;
+      if (field.type === 'bool')
+        return `<input type="checkbox" id="${id}" ${value ? 'checked' : ''}>`;
+      if (field.type === 'int' || field.type === 'float')
+        return `<input type="number" id="${id}" step="${field.type === 'int' ? 1 : 'any'}" value="${value ?? ''}">`;
+      if (field.type.startsWith('dict'))
+        return `<input type="text" id="${id}" value='${JSON.stringify(value ?? {})}'> <span class="hint">JSON</span>`;
+      return `<input type="text" id="${id}" value="${value ?? ''}">`;
+    }
+
+    function renderEditor() {
+      const sections = schema[activeFile];
+      $('form-view').innerHTML = Object.entries(sections).map(([sec, fields]) =>
+        (sec ? `<div class="section-title">${sec}</div>` : '') +
+        fields.map(f => `
+          <div class="field">
+            <label for="f_${sec}_${f.name}">${f.name} <span class="hint">(${f.type}, default ${JSON.stringify(f.default)})</span></label>
+            ${inputFor(sec, f)}
+          </div>`).join('')
+      ).join('');
+      $('raw-text').value = configs[activeFile]?.raw || '';
+    }
+
+    function coerce(field, el) {
+      if (field.type === 'bool') return el.checked;
+      if (field.type === 'int') return parseInt(el.value, 10);
+      if (field.type === 'float') return parseFloat(el.value);
+      if (field.type.startsWith('dict')) return JSON.parse(el.value || '{}');
+      return el.value;
+    }
+
+    function gatherForm() {
+      const values = {};
+      for (const [sec, fields] of Object.entries(schema[activeFile])) {
+        const target = sec ? (values[sec] = {}) : values;
+        for (const f of fields) {
+          const el = $(`f_${sec}_${f.name}`);
+          if (el) target[f.name] = coerce(f, el);
+        }
+      }
+      return values;
+    }
+
+    async function save() {
+      clearMsg();
+      let body;
+      try {
+        body = rawMode ? { raw: $('raw-text').value } : { values: gatherForm() };
+      } catch (e) { return showMsg('err', 'Invalid JSON in a dict field: ' + e.message); }
+      const res = await fetch(`/api/config/${activeFile}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) return showMsg('err', data.detail || 'Save failed');
+      showMsg('ok', `${activeFile}.yaml saved. Restart required for these changes to be implemented.`);
+      configs = await fetch('/api/config').then(r => r.json());
+      renderEditor();
+      pollSystem();
+    }
+
+    async function restart() {
+      if (!confirm('Restart the vision pipeline now?')) return;
+      await fetch('/api/system/restart', { method: 'POST' });
+      showMsg('ok', 'Restarting…');
+      pollSystem();
+    }
+
+    async function pollSystem() {
+      try {
+        const s = await fetch('/api/system').then(r => r.json());
+        const badge = $('state');
+        badge.textContent = s.state + (s.message ? `: ${s.message.slice(0, 60)}` : '');
+        badge.className = 'badge ' + s.state;
+        $('banner').style.display = s.restart_required ? 'inline-block' : 'none';
+        $('restart-btn').disabled = !(s.restart_required || s.state === 'error' || s.state === 'stopped');
+      } catch (e) { /* server restarting */ }
+    }
+
+    function showMsg(kind, text) { const m = $('msg'); m.className = 'msg ' + kind; m.textContent = text; }
+    function clearMsg() { $('msg').className = 'msg'; }
+
+    $('view-form').onclick = () => { rawMode = false; $('view-form').classList.add('active'); $('view-raw').classList.remove('active'); $('form-view').style.display = ''; $('raw-view').style.display = 'none'; clearMsg(); };
+    $('view-raw').onclick = () => { rawMode = true; $('view-raw').classList.add('active'); $('view-form').classList.remove('active'); $('form-view').style.display = 'none'; $('raw-view').style.display = ''; clearMsg(); };
+    $('save-btn').onclick = save;
+    $('restart-btn').onclick = restart;
+
+    loadAll();
+    pollSystem();
+    setInterval(pollSystem, 2000);
+  </script>
+</body>
+</html>

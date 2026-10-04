@@ -1,0 +1,9 @@
+# Communication configuration — see docs_camera/CONFIGURATION.md
+interface: opcua           # mock | opcua  (set opcua for robot operation)
+opcua:
+  endpoint: opc.tcp://0.0.0.0:5000     # vision board is the OPC UA server
+  namespace: http://camera-detection/vision
+  mode: request            # request = robot sets TargetRequest first; push = publish when idle
+  handshake_poll_s: 0.1    # how often the server checks PickComplete/TargetRequest
+  start_timeout_s: 15.0    # max wait for server startup
+  call_timeout_s: 5.0      # timeout for individual node operations

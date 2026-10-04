@@ -1,0 +1,12 @@
+[project]
+name = "vision-system"
+version = "0.1.0"
+description = "Modular Python vision system for Delta robot pick-and-place"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "hardware: tests requiring physical hardware (camera/robot); deselect with -m 'not hardware'",
+]
