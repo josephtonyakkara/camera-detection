@@ -83,3 +83,7 @@ class AppControl(ABC):
     def get_communication_info(self) -> CommunicationInfo | None:
         """Live robot-communication snapshot; None when unavailable."""
         return None
+
+    def get_cycle_snapshot(self) -> dict | None:
+        """Current pick-cycle state + transition history; None when unavailable."""
+        return None

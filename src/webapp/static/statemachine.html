@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>State Machine — Vision System</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #14171c; color: #e6e6e6; margin: 0; padding: 1.5rem; }
+    nav { margin-bottom: 1rem; display: flex; gap: 1rem; border-bottom: 1px solid #2a2f38; padding-bottom: .75rem; }
+    nav a { color: #9aa4b2; text-decoration: none; font-size: .9rem; }
+    nav a.active { color: #e6e6e6; font-weight: 600; }
+    h1 { font-size: 1.2rem; margin: 0 0 1rem; }
+    h2 { font-size: .9rem; color: #9aa4b2; text-transform: uppercase; letter-spacing: .05em; margin: 1.4rem 0 .5rem; }
+    .flow { display: flex; gap: .45rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
+    .st { padding: .55rem .8rem; border-radius: 8px; border: 1px solid #2a2f38; background: #0f1319; font-size: .8rem; color: #6b7280; }
+    .st.on { border-color: #4ade80; color: #4ade80; font-weight: 700; box-shadow: 0 0 12px #4ade8044; }
+    .st.side { border-style: dashed; }
+    .arrow { color: #4b5563; }
+    .detail { font-size: 1rem; margin: .4rem 0 1rem; color: #e6e6e6; }
+    .detail .muted { color: #6b7280; font-size: .85rem; }
+    table { border-collapse: collapse; width: 100%; max-width: 900px; font-size: .85rem; }
+    th, td { text-align: left; padding: .3rem .6rem; border-bottom: 1px solid #2a2f38; }
+    th { color: #9aa4b2; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Live</a>
+    <a href="/config">Configuration</a>
+    <a href="/communication">Communication</a>
+    <a href="/logs">Logs</a>
+    <a href="/statemachine" class="active">State</a>
+    <a href="/workflow">Workflow</a>
+  </nav>
+  <h1>Pick-Cycle State Machine</h1>
+
+  <div class="flow" id="flow"></div>
+  <div class="detail"><span id="state-detail">–</span> <span class="muted" id="state-since"></span></div>
+
+  <h2>Transition history (newest first)</h2>
+  <table>
+    <thead><tr><th>State</th><th>Detail</th><th>Entered</th><th>Duration</th></tr></thead>
+    <tbody id="history"></tbody>
+  </table>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const MAIN_FLOW = [
+      'waiting_for_request', 'request_received', 'frame_captured', 'parts_detected',
+      'coordinates_transformed', 'target_published', 'picking', 'pick_complete', 'cooldown',
+    ];
+    const SIDE_STATES = ['no_parts_found', 'error', 'unavailable'];
+
+    function renderFlow(current) {
+      $('flow').innerHTML =
+        MAIN_FLOW.map(s =>
+          `<span class="st ${s === current ? 'on' : ''}">${s.replaceAll('_', ' ')}</span>`
+        ).join('<span class="arrow">→</span>') +
+        '<span class="arrow" style="margin-left:1rem"></span>' +
+        SIDE_STATES.map(s =>
+          `<span class="st side ${s === current ? 'on' : ''}">${s.replaceAll('_', ' ')}</span>`
+        ).join('');
+    }
+
+    function fmtTs(ts) { return new Date(ts * 1000).toLocaleTimeString(); }
+
+    async function refresh() {
+      let s;
+      try { s = await (await fetch('/api/cycle')).json(); } catch (e) { return; }
+      renderFlow(s.state);
+      $('state-detail').textContent = `${s.state.replaceAll('_', ' ')}${s.detail ? ' — ' + s.detail : ''}`;
+      $('state-since').textContent = s.since ? `since ${fmtTs(s.since)}` : '';
+      $('history').innerHTML = (s.history || []).slice(0, 50).map(h =>
+        `<tr><td>${h.state.replaceAll('_', ' ')}</td><td>${h.detail || ''}</td>` +
+        `<td>${fmtTs(h.entered)}</td><td>${h.duration_s} s</td></tr>`).join('');
+    }
+
+    refresh();
+    setInterval(refresh, 500);
+  </script>
+</body>
+</html>

@@ -19,6 +19,7 @@ from vision_system.app import VisionApplication
 from vision_system.app_control import AppControl, PipelineState, PipelineStatus
 from vision_system.config.loader import load_config
 from vision_system.models.live_state import LiveState
+from vision_system.models.log_buffer import LogBuffer
 from vision_system.utils.logging_setup import setup_logging
 from vision_system.utils.paths import resolve
 from webapp import start_web_server
@@ -65,6 +66,10 @@ class ApplicationSupervisor(AppControl):
         app = self._app
         return app.get_communication_info() if app is not None else None
 
+    def get_cycle_snapshot(self):
+        app = self._app
+        return app.get_cycle_snapshot() if app is not None else None
+
     # ---- lifecycle (main thread) ----
 
     def _set_state(self, state: PipelineState, message: str = "") -> None:
@@ -106,11 +111,12 @@ class ApplicationSupervisor(AppControl):
 
 def main() -> int:
     config = load_config()
-    setup_logging(config.system.log_level, resolve(config.system.log_dir))
+    log_buffer = LogBuffer(config.system.log_buffer_size)
+    setup_logging(config.system.log_level, resolve(config.system.log_dir), buffer=log_buffer)
     live_state = LiveState() if config.system.web_enabled else None
     supervisor = ApplicationSupervisor(live_state)
     if live_state is not None:
-        start_web_server(live_state, config.system, control=supervisor)
+        start_web_server(live_state, config.system, control=supervisor, log_buffer=log_buffer)
     try:
         supervisor.run_forever()
     except KeyboardInterrupt:

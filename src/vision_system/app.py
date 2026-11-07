@@ -22,6 +22,7 @@ from vision_system.detection.base import PartDetector
 from vision_system.detection.opencv_detector import OpenCVDetector
 from vision_system.detection.reference_loader import load_reference_set
 from vision_system.models.data import DetectionResult, PickTarget, ProcessingMode
+from vision_system.models.cycle_state import CycleState, CycleTracker
 from vision_system.processing.image_processor import ImageProcessor
 from vision_system.communication.base import RobotError, RobotInterface
 from vision_system.communication.mock_robot import MockRobot
@@ -76,6 +77,8 @@ class VisionApplication:
         self._live_state = live_state
         self._running = False
         self._last_ack_id: int | None = None
+        self._last_ready = False
+        self._cycle = CycleTracker()
         self._fps = 0.0
         self._fps_frames = 0
         self._fps_t0 = time.perf_counter()
@@ -114,21 +117,50 @@ class VisionApplication:
         ):
             self._targets.notify_pick_complete(status.last_pick_target_id)
             self._last_ack_id = status.last_pick_target_id
+            self._cycle.set(CycleState.PICK_COMPLETE, f"target T{status.last_pick_target_id}")
+            self._cycle.set(CycleState.COOLDOWN)
 
         candidates = self._targets.generate_targets(result)
-        if self._robot.is_robot_ready():
+        ready = self._robot.is_robot_ready()
+        if ready and not self._last_ready:
+            self._cycle.set(CycleState.REQUEST_RECEIVED)
+        if ready:
             target = self._targets.select_next(result)
             if target is not None:
+                coord = target.coordinate
+                self._cycle.set(CycleState.FRAME_CAPTURED, f"frame {frame.frame_id}")
+                self._cycle.set(
+                    CycleState.PARTS_DETECTED, f"{result.detection_count} part(s)"
+                )
+                self._cycle.set(
+                    CycleState.COORDS_TRANSFORMED, f"({coord.x:.1f}, {coord.y:.1f}) mm"
+                )
                 try:
                     self._robot.send_pick_target(target)
+                    self._cycle.set(CycleState.TARGET_PUBLISHED, f"T{target.target_id}")
+                    self._cycle.set(CycleState.PICKING, f"T{target.target_id}")
                 except RobotError as exc:
                     logger.error("Failed to send target %d: %s", target.target_id, exc)
                     self._targets.notify_send_failed(target.target_id)
+                    self._cycle.set(CycleState.ERROR, str(exc))
+            elif result.detection_count == 0:
+                self._cycle.set(CycleState.NO_PARTS_FOUND)
+        else:
+            robot_state = status.state.name
+            if robot_state == "BUSY":
+                self._cycle.set(CycleState.PICKING)
+            else:
+                self._cycle.set(CycleState.WAITING_FOR_REQUEST)
+        self._last_ready = ready
 
         self._update_fps()
         annotated = self._publish(frame.image, result, candidates)
         self._last_annotated = annotated
         return result, candidates
+
+    def get_cycle_snapshot(self) -> dict:
+        """Current pick-cycle state + transition history for frontends."""
+        return self._cycle.snapshot()
 
     def _update_fps(self) -> None:
         self._fps_frames += 1

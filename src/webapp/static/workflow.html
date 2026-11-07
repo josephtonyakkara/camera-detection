@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Workflow — Vision System</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #14171c; color: #e6e6e6; margin: 0; padding: 1.5rem; }
+    nav { margin-bottom: 1rem; display: flex; gap: 1rem; border-bottom: 1px solid #2a2f38; padding-bottom: .75rem; }
+    nav a { color: #9aa4b2; text-decoration: none; font-size: .9rem; }
+    nav a.active { color: #e6e6e6; font-weight: 600; }
+    h1 { font-size: 1.2rem; margin: 0 0 .4rem; }
+    .crumbs { margin: .4rem 0 1rem; font-size: .85rem; color: #9aa4b2; }
+    .crumbs a { color: #60a5fa; cursor: pointer; text-decoration: none; }
+    .crumbs span.sep { margin: 0 .35rem; color: #4b5563; }
+    .layout { display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap; }
+    .flow { flex: 1; min-width: 480px; display: flex; gap: .45rem; align-items: center; flex-wrap: wrap; }
+    .blk { position: relative; padding: .6rem .8rem; border-radius: 8px; border: 1px solid #2a2f38;
+           background: #0f1319; font-size: .82rem; cursor: pointer; max-width: 180px; }
+    .blk:hover { border-color: #60a5fa; }
+    .blk .lbl { font-weight: 600; }
+    .blk .desc { color: #6b7280; font-size: .7rem; margin-top: .15rem; }
+    .blk.haskids::after { content: '⌄ drill down'; display: block; margin-top: .25rem;
+                          font-size: .62rem; color: #60a5fa; }
+    .blk.live { border-color: #4ade80; box-shadow: 0 0 12px #4ade8044; }
+    .blk.live .lbl { color: #4ade80; }
+    .blk.errored { border-color: #f87171; box-shadow: 0 0 12px #f8717144; }
+    .blk.selected { border-color: #fbbf24; }
+    .arrow { color: #4b5563; font-size: 1.1rem; }
+    .panel { width: 320px; background: #1a1f29; border: 1px solid #2a2f38; border-radius: 8px;
+             padding: 1rem; font-size: .85rem; display: none; }
+    .panel h3 { margin: 0 0 .5rem; font-size: .95rem; }
+    .panel .kv { display: grid; grid-template-columns: 90px 1fr; gap: .25rem .6rem; }
+    .panel .k { color: #9aa4b2; }
+    .panel code { background: #0f1319; padding: .1rem .3rem; border-radius: 4px; font-size: .75rem; }
+    .hint { color: #6b7280; font-size: .78rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Live</a>
+    <a href="/config">Configuration</a>
+    <a href="/communication">Communication</a>
+    <a href="/logs">Logs</a>
+    <a href="/statemachine">State</a>
+    <a href="/workflow" class="active">Workflow</a>
+  </nav>
+  <h1 id="title">Workflow</h1>
+  <div class="crumbs" id="crumbs"></div>
+  <div class="layout">
+    <div class="flow" id="flow"></div>
+    <div class="panel" id="panel"></div>
+  </div>
+  <div class="hint">Click a block with “drill down” to descend (max 3 levels); click any block for details.
+    On the top level the currently active stage lights up green while the pipeline runs.</div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let root = null, path = [], cycleState = '', systemError = false;
+
+    function nodeAt(p) {
+      let node = root;
+      for (const id of p) node = (node.children || []).find(c => c.id === id) || node;
+      return node;
+    }
+
+    function render() {
+      const node = nodeAt(path);
+      $('title').textContent = node.label;
+      $('crumbs').innerHTML =
+        `<a data-depth="0">${root.label}</a>` +
+        path.map((id, i) =>
+          `<span class="sep">→</span><a data-depth="${i + 1}">${nodeAt(path.slice(0, i + 1)).label}</a>`
+        ).join('');
+      $('crumbs').querySelectorAll('a').forEach(a =>
+        a.onclick = () => { path = path.slice(0, +a.dataset.depth); location.hash = path.join('/'); });
+
+      const kids = node.children || [];
+      $('flow').innerHTML = kids.map((c, i) =>
+        `${i ? '<span class="arrow">→</span>' : ''}` +
+        `<div class="blk ${c.children ? 'haskids' : ''}" data-id="${c.id}">` +
+        `<div class="lbl">${c.label}</div><div class="desc">${c.description || ''}</div></div>`
+      ).join('');
+      $('flow').querySelectorAll('.blk').forEach(b => b.onclick = () => onBlock(b.dataset.id));
+      $('panel').style.display = 'none';
+      applyLive();
+    }
+
+    function onBlock(id) {
+      const node = (nodeAt(path).children || []).find(c => c.id === id);
+      showDetails(node);
+      if (node.children && path.length < 2) {  // definition is max 3 levels deep
+        path.push(id);
+        location.hash = path.join('/');
+      } else if (node.children) {
+        path.push(id);
+        location.hash = path.join('/');
+      }
+    }
+
+    function showDetails(node) {
+      const d = node.details;
+      $('panel').style.display = 'block';
+      $('panel').innerHTML = `<h3>${node.label}</h3><p>${node.description || ''}</p>` +
+        (d ? `<div class="kv">` +
+          `<span class="k">File</span><span><code>${d.file || '—'}</code></span>` +
+          `<span class="k">Function</span><span><code>${d.function || '—'}</code></span>` +
+          `<span class="k">Inputs</span><span>${d.inputs || '—'}</span>` +
+          `<span class="k">Outputs</span><span>${d.outputs || '—'}</span></div>` : '');
+      $('flow').querySelectorAll('.blk').forEach(b =>
+        b.classList.toggle('selected', b.dataset.id === node.id));
+    }
+
+    function applyLive() {
+      if (path.length !== 0) return;  // live highlight on the top level only
+      const kids = root.children || [];
+      $('flow').querySelectorAll('.blk').forEach(b => {
+        const node = kids.find(c => c.id === b.dataset.id);
+        b.classList.toggle('live', !!node.live_states && node.live_states.includes(cycleState));
+        b.classList.toggle('errored', b.dataset.id === 'supervisor' && systemError);
+      });
+    }
+
+    async function poll() {
+      try {
+        const [cycle, system] = await Promise.all([
+          fetch('/api/cycle').then(r => r.json()),
+          fetch('/api/system').then(r => r.json()),
+        ]);
+        cycleState = cycle.state;
+        systemError = system.state === 'error';
+        applyLive();
+      } catch (e) { /* server restarting */ }
+    }
+
+    function fromHash() {
+      path = location.hash.replace(/^#/, '').split('/').filter(Boolean);
+      render();
+    }
+
+    window.addEventListener('hashchange', fromHash);
+
+    fetch('/api/flow').then(r => r.json()).then(data => { root = data; fromHash(); });
+    poll();
+    setInterval(poll, 1000);
+  </script>
+</body>
+</html>

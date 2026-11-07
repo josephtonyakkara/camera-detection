@@ -57,7 +57,9 @@ All inter-module data. No logic beyond simple properties.
 | base.py | `CameraInterface` (ABC) | contract for all drivers: `open(config)`, `get_frame()`, `is_open()`, `close()` | `CameraConfig` | `FrameData` | — |
 | base.py | `CameraError` | camera failure exception | — | — | — |
 | usb_camera.py | `USBCamera` | cv2.VideoCapture driver | `CameraConfig` | `FrameData` (BGR) | OpenCV |
-| usb_camera.py | `enumerate_usb_cameras(max_index, with_snapshot)` | probe device indices, return responding cameras with resolution/snapshot | int, bool | `list[CameraProbe]` | OpenCV (DSHOW) |
+| usb_camera.py | `enumerate_usb_cameras(max_index, with_snapshot)` | probe device indices, return responding cameras with resolution/snapshot | int, bool | `list[CameraProbe]` | OpenCV (OS-default backend) |
+| usb_camera.py | `default_backend_name(platform=None)` | resolve `auto` to the best backend for the OS (`dshow` Win, `v4l2` Linux) | optional platform str | backend name str | — |
+| usb_camera.py | `resolve_backend(name)` | map configured backend name to an OpenCV capture constant | str | int | raises `CameraError` on unknown name |
 | replay_camera.py | `ReplayCamera` | serves image files from `camera.replay_dir` in a loop (tests/dev without hardware) | `CameraConfig` | `FrameData` (BGR) | OpenCV imread |
 | manager.py | `create_camera(type)` | driver factory | type string | `CameraInterface` | `USBCamera` (lazy import) |
 | manager.py | `CameraManager.start()` | open with retry policy | — | — | `CameraInterface.open()` |

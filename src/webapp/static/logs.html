@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Logs — Vision System</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #14171c; color: #e6e6e6; margin: 0; padding: 1.5rem; }
+    nav { margin-bottom: 1rem; display: flex; gap: 1rem; border-bottom: 1px solid #2a2f38; padding-bottom: .75rem; }
+    nav a { color: #9aa4b2; text-decoration: none; font-size: .9rem; }
+    nav a.active { color: #e6e6e6; font-weight: 600; }
+    h1 { font-size: 1.2rem; margin: 0 0 1rem; }
+    .toolbar { display: flex; gap: .8rem; align-items: center; margin-bottom: .8rem; flex-wrap: wrap; }
+    select, input[type=text] { background: #0f1319; border: 1px solid #2a2f38; color: #e6e6e6; border-radius: 5px; padding: .3rem .5rem; font-size: .85rem; }
+    label { font-size: .8rem; color: #9aa4b2; }
+    button { background: #1f2430; border: 1px solid #2a2f38; color: #9aa4b2; padding: .3rem .8rem; border-radius: 6px; cursor: pointer; font-size: .8rem; }
+    button.active { border-color: #2563eb; color: #e6e6e6; }
+    .logbox { background: #0f1319; border: 1px solid #2a2f38; border-radius: 8px; height: 65vh; overflow-y: auto; font-family: ui-monospace, monospace; font-size: .78rem; padding: .5rem; }
+    .row { display: grid; grid-template-columns: 90px 70px 260px 1fr; gap: .6rem; padding: .1rem .3rem; border-bottom: 1px solid #181d26; }
+    .lvl-DEBUG { color: #6b7280; } .lvl-INFO { color: #93c5fd; }
+    .lvl-WARNING { color: #fbbf24; } .lvl-ERROR, .lvl-CRITICAL { color: #f87171; font-weight: 600; }
+    .muted { color: #6b7280; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Live</a>
+    <a href="/config">Configuration</a>
+    <a href="/communication">Communication</a>
+    <a href="/logs" class="active">Logs</a>
+    <a href="/statemachine">State</a>
+    <a href="/workflow">Workflow</a>
+  </nav>
+  <h1>Logs</h1>
+  <div class="toolbar">
+    <label>Level
+      <select id="level">
+        <option>DEBUG</option><option selected>INFO</option>
+        <option>WARNING</option><option>ERROR</option>
+      </select>
+    </label>
+    <label>Module <input type="text" id="module" placeholder="e.g. camera"></label>
+    <button id="pause">Pause</button>
+    <button id="autoscroll" class="active">Auto-scroll</button>
+    <button id="clear">Clear view</button>
+    <span class="muted" id="count"></span>
+  </div>
+  <div class="logbox" id="logbox"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let lastSeq = 0, paused = false, autoscroll = true, shown = 0;
+
+    function fmtTs(ts) {
+      const d = new Date(ts * 1000);
+      return d.toLocaleTimeString() + '.' + String(d.getMilliseconds()).padStart(3, '0');
+    }
+
+    async function poll() {
+      if (paused) return;
+      const level = $('level').value, module = $('module').value;
+      let data;
+      try {
+        data = await (await fetch(`/api/logs?since=${lastSeq}&level=${level}&module=${encodeURIComponent(module)}`)).json();
+      } catch (e) { return; }
+      if (data.last_seq < lastSeq) { $('logbox').innerHTML = ''; shown = 0; lastSeq = 0; }  // app restarted
+      if (!data.records.length) { lastSeq = data.last_seq; return; }
+      const box = $('logbox');
+      for (const r of data.records) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<span class="muted">${fmtTs(r.ts)}</span>` +
+          `<span class="lvl-${r.level}">${r.level}</span>` +
+          `<span class="muted">${r.logger}</span><span>${r.message}</span>`;
+        box.appendChild(row);
+        shown++;
+      }
+      while (box.children.length > 1000) box.removeChild(box.firstChild);
+      lastSeq = data.last_seq;
+      $('count').textContent = `${shown} record(s)`;
+      if (autoscroll) box.scrollTop = box.scrollHeight;
+    }
+
+    function refilter() { $('logbox').innerHTML = ''; shown = 0; lastSeq = 0; poll(); }
+    $('level').onchange = refilter;
+    $('module').onchange = refilter;
+    $('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Resume' : 'Pause'; $('pause').classList.toggle('active', paused); };
+    $('autoscroll').onclick = () => { autoscroll = !autoscroll; $('autoscroll').classList.toggle('active', autoscroll); };
+    $('clear').onclick = () => { $('logbox').innerHTML = ''; shown = 0; };
+
+    poll();
+    setInterval(poll, 1000);
+  </script>
+</body>
+</html>

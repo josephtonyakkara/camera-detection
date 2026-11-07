@@ -18,6 +18,18 @@ The application never touches OpenCV capture APIs directly — only
 `CameraInterface`. Swapping to RealSense/GigE later means adding one driver
 class and one factory entry (see ARCHITECTURE.md → Replaceability).
 
+## Capture Backend Selection
+
+`camera.backend: auto` (default) resolves per OS at open time: DirectShow on
+Windows (MSMF can hang for minutes opening some external UVC cameras), V4L2 on
+Linux/Raspberry Pi, OpenCV's own choice elsewhere. Device probing
+(`enumerate_usb_cameras`) uses the same OS default. An explicit `dshow` /
+`msmf` / `v4l2` value overrides the automatic choice.
+
+On Linux, device indices map to `/dev/video0`, `/dev/video1`, …; many UVC
+cameras expose two nodes per device, and access requires membership in the
+`video` group. Probe with `scripts/camera_check.py --list`.
+
 ## Lifecycle
 
 | Phase | Behaviour |

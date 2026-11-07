@@ -17,15 +17,23 @@ selected in `config/vision.yaml` — no code change is needed to switch parts.
 ## Quick Start
 
 ```bash
-# Windows
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
+# Linux / Raspberry Pi
+bash scripts/setup.sh
+.venv/bin/python main.py
+```
 
+```powershell
+# Windows
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+.venv\Scripts\python.exe main.py
+```
+
+```bash
 # Run tests (no hardware required)
 pytest -m "not hardware"
 ```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full new-machine checklist.
 
 ## Requirements
 
@@ -55,6 +63,7 @@ pytest -m "not hardware"
 | [DATA_FLOW.md](DATA_FLOW.md) | How data travels between modules |
 | [FILE_FUNCTION_REFERENCE.md](FILE_FUNCTION_REFERENCE.md) | Every file/function, inputs/outputs |
 | [CONFIGURATION.md](CONFIGURATION.md) | Every configuration parameter |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Running on a new machine (Windows/Linux/Raspberry Pi) |
 | [CAMERA_INTEGRATION.md](CAMERA_INTEGRATION.md) | Camera abstraction and frame acquisition |
 | [VISION_PIPELINE.md](VISION_PIPELINE.md) | Processing modes and detection pipeline |
 | [COORDINATE_SYSTEM.md](COORDINATE_SYSTEM.md) | Coordinate conventions and calibration |

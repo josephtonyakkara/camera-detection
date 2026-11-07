@@ -16,8 +16,10 @@
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `CameraError: Cannot open USB camera at index 0` | wrong index, camera in use, no permission | try other `device_index` values; close apps using the camera; on Linux check `/dev/video*` permissions |
-| Startup hangs after "OpenCVDetector configured" (camera never opens) | Windows MSMF backend stalls opening some external USB cameras | set `backend: dshow` in `config/camera.yaml` |
+| Startup hangs after "OpenCVDetector configured" (camera never opens) | Windows MSMF backend stalls opening some external USB cameras | keep `backend: auto` (resolves to DirectShow on Windows) or set `backend: dshow` explicitly |
 | `CameraError: Unknown camera backend '...'` | typo in `backend` | use `auto`, `dshow`, `msmf`, or `v4l2` |
+| Linux: permission denied opening `/dev/video*` | user not in `video` group | `sudo usermod -aG video $USER`, re-login |
+| Linux: `ImportError: libGL.so.1` importing cv2 | minimal Debian/Pi install lacks GL libs | `sudo apt install libgl1 libglib2.0-0` |
 | `CameraError: Camera could not be started` after retries | camera unplugged/faulty | check connection; increase `reconnect_attempts` |
 | Wrong resolution in frames | driver ignored requested size | `FrameData.width/height` reflect reality; adjust `camera.yaml` to a supported mode |
 | Frame acquisition intermittently fails | flaky USB connection | manager auto-reconnects once per call; check cable/hub if persistent |

@@ -7,13 +7,21 @@ keys and invalid YAML raise `ConfigError` at startup.
 Relative paths are resolved against the **project root**, never the working
 directory.
 
+## Per-machine overrides: config/local/
+
+The committed `config/*.yaml` are portable defaults. Machine-specific values
+(camera index, ports, …) go in `config/local/<name>.yaml` (gitignored). The
+loader merges each local file over its base file key by key — nested sections
+(`workspace`, `opcua`) are merged, scalars are replaced. The web config editor
+saves to `config/local/` only. See DEPLOYMENT.md.
+
 ## config/camera.yaml
 
 | Parameter | Purpose | Example | Required | Used by |
 |---|---|---|---|---|
 | `type` | camera driver selection | `usb` | no (default `usb`) | `camera/manager.py` factory |
 | `device_index` | OpenCV VideoCapture index; discover with `scripts/camera_check.py --list` | `1` | no | `USBCamera` |
-| `backend` | capture backend: `auto` / `dshow` / `msmf` / `v4l2`; use `dshow` on Windows (MSMF can hang for minutes opening external cameras) | `dshow` | no (default `auto`) | `USBCamera` |
+| `backend` | capture backend: `auto` / `dshow` / `msmf` / `v4l2`; `auto` resolves per OS — DirectShow on Windows (MSMF can hang opening external cameras), V4L2 on Linux | `auto` | no (default `auto`) | `USBCamera` |
 | `replay_dir` | image folder served as frames when `type: replay` (tests/dev without hardware) | `logs/camera_check` | for `replay` | `ReplayCamera` |
 | `width` | requested frame width (px) | `1280` | no | `USBCamera` |
 | `height` | requested frame height (px) | `720` | no | `USBCamera` |

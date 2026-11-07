@@ -84,6 +84,7 @@ class SystemConfig:
 
     log_level: str = "INFO"
     log_dir: str = "logs"
+    log_buffer_size: int = 500  # records kept for the web logs page
     calibration_file: str = "calibration/homography.yaml"
     web_enabled: bool = True
     web_host: str = "0.0.0.0"

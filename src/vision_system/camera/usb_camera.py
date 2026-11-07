@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from dataclasses import dataclass
 
@@ -25,6 +26,31 @@ _BACKENDS = {
 }
 
 
+def default_backend_name(platform: str | None = None) -> str:
+    """Resolve the 'auto' backend to the best driver for this OS."""
+    plat = platform if platform is not None else sys.platform
+    if plat.startswith("win"):
+        return "dshow"
+    if plat.startswith("linux"):
+        return "v4l2"
+    return "auto"  # macOS and others: let OpenCV choose (CAP_ANY)
+
+
+def resolve_backend(name: str) -> int:
+    """Map a configured backend name to an OpenCV capture API constant.
+
+    Raises:
+        CameraError: unknown backend name.
+    """
+    effective = default_backend_name() if name == "auto" else name
+    backend = _BACKENDS.get(effective)
+    if backend is None:
+        raise CameraError(
+            f"Unknown camera backend {name!r}; expected one of {sorted(_BACKENDS)}"
+        )
+    return backend
+
+
 @dataclass(frozen=True)
 class CameraProbe:
     """Result of probing one USB device index."""
@@ -38,11 +64,13 @@ class CameraProbe:
 def enumerate_usb_cameras(max_index: int = 10, with_snapshot: bool = False) -> list[CameraProbe]:
     """Probe device indices 0..max_index-1 and return the cameras that respond.
 
-    Uses DirectShow on probing for fast failure on absent indices (Windows).
+    Uses the OS-default backend (DirectShow on Windows for fast failure on
+    absent indices; V4L2 on Linux).
     """
+    probe_backend = resolve_backend("auto")
     found: list[CameraProbe] = []
     for index in range(max_index):
-        capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+        capture = cv2.VideoCapture(index, probe_backend)
         try:
             if not capture.isOpened():
                 continue
@@ -71,13 +99,15 @@ class USBCamera(CameraInterface):
         self._frame_counter: int = 0
 
     def open(self, config: CameraConfig) -> None:
-        backend = _BACKENDS.get(config.backend)
-        if backend is None:
-            raise CameraError(
-                f"Unknown camera backend {config.backend!r}; expected one of {sorted(_BACKENDS)}"
-            )
+        backend = resolve_backend(config.backend)
+        effective = (
+            default_backend_name() if config.backend == "auto" else config.backend
+        )
         logger.info(
-            "Opening USB camera %d (backend=%s) ...", config.device_index, config.backend
+            "Opening USB camera %d (backend=%s, effective=%s) ...",
+            config.device_index,
+            config.backend,
+            effective,
         )
         capture = cv2.VideoCapture(config.device_index, backend)
         if not capture.isOpened():

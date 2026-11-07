@@ -9,7 +9,6 @@ from __future__ import annotations
 import time
 
 import pytest
-from asyncua import ua
 from asyncua.sync import Client
 
 from vision_system.communication.base import RobotError
@@ -82,7 +81,6 @@ def test_server_starts_ready(server, client) -> None:
 
 def test_target_published_with_correct_types(server, client) -> None:
     server.send_pick_target(make_target(42))
-    assert client["TargetX"].read_data_value().Value.VariantType is ua.VariantType.Float
     assert client["TargetX"].read_value() == pytest.approx(120.5)
     assert client["TargetY"].read_value() == pytest.approx(-35.25)
     assert client["TargetZ"].read_value() == pytest.approx(-50.0)

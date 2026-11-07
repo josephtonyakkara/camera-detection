@@ -12,7 +12,7 @@ status is exposed as an Int32 code instead of a String.
 Node layout (namespace from communication.opcua.namespace):
 
     Objects/VisionSystem/
-        TargetX        Float    mm, written by vision
+        TargetX        Float    mm, written by vision (B&R REAL is 32-bit)
         TargetY        Float    mm, written by vision
         TargetZ        Float    mm, written by vision
         TargetId       Int32    written by vision
@@ -265,7 +265,7 @@ class OpcUaRobotServer(RobotInterface):
         vision = await server.get_objects_node().add_object(idx, "VisionSystem")
         # robot client supports only Boolean/Int/Real types (no String)
         spec = {
-            "TargetX": ua.Variant(0.0, ua.VariantType.Float),
+            "TargetX": ua.Variant(0.0, ua.VariantType.Float),  # B&R REAL is Float32, not Double
             "TargetY": ua.Variant(0.0, ua.VariantType.Float),
             "TargetZ": ua.Variant(0.0, ua.VariantType.Float),
             "TargetId": ua.Variant(0, ua.VariantType.Int32),

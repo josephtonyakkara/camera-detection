@@ -13,9 +13,13 @@ from fastapi.responses import HTMLResponse
 from vision_system.app_control import AppControl
 from vision_system.config.models import SystemConfig
 from vision_system.models.live_state import LiveState
+from vision_system.models.log_buffer import LogBuffer
 from webapp.routers.communication import make_communication_router
 from webapp.routers.config_editor import make_config_router, make_system_router
+from webapp.routers.cycle import make_cycle_router
+from webapp.routers.flow import make_flow_router
 from webapp.routers.live import make_live_router
+from webapp.routers.logs import make_logs_router
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +30,22 @@ def _page(name: str) -> str:
     return (STATIC_DIR / name).read_text(encoding="utf-8")
 
 
-def create_app(state: LiveState, control: AppControl | None = None) -> FastAPI:
+def create_app(
+    state: LiveState,
+    control: AppControl | None = None,
+    log_buffer: LogBuffer | None = None,
+) -> FastAPI:
     """Build the FastAPI app; control may be None for view-only deployments."""
     app = FastAPI(title="Vision System Dashboard")
     app.include_router(make_live_router(state))
+    app.include_router(make_flow_router())
     if control is not None:
         app.include_router(make_config_router(control))
         app.include_router(make_system_router(control))
         app.include_router(make_communication_router(control))
+        app.include_router(make_cycle_router(control))
+    if log_buffer is not None:
+        app.include_router(make_logs_router(log_buffer))
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
@@ -47,16 +59,31 @@ def create_app(state: LiveState, control: AppControl | None = None) -> FastAPI:
     def communication_page() -> str:
         return _page("communication.html")
 
+    @app.get("/logs", response_class=HTMLResponse)
+    def logs_page() -> str:
+        return _page("logs.html")
+
+    @app.get("/statemachine", response_class=HTMLResponse)
+    def statemachine_page() -> str:
+        return _page("statemachine.html")
+
+    @app.get("/workflow", response_class=HTMLResponse)
+    def workflow_page() -> str:
+        return _page("workflow.html")
+
     return app
 
 
 def start_web_server(
-    state: LiveState, config: SystemConfig, control: AppControl | None = None
+    state: LiveState,
+    config: SystemConfig,
+    control: AppControl | None = None,
+    log_buffer: LogBuffer | None = None,
 ) -> threading.Thread:
     """Run uvicorn in a daemon thread; returns the thread."""
     server = uvicorn.Server(
         uvicorn.Config(
-            create_app(state, control),
+            create_app(state, control, log_buffer),
             host=config.web_host,
             port=config.web_port,
             log_level="warning",

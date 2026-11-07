@@ -3,3 +3,11 @@ __pycache__/
 *.pyc
 logs/
 .pytest_cache/
+config/local/
+config/*.yaml.bak
+
+# per-machine state (see docs_camera/DEPLOYMENT.md)
+config/local/
+calibration/homography.yaml
+*.yaml.bak
+*.yaml.tmp

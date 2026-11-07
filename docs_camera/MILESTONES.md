@@ -16,19 +16,26 @@ server, FastAPI web UI, Windows dev / Linux deploy.
 | 7 | Camera calibration | Homography acquisition procedure + persisted calibration | **✅ Done** (2026-09-05 tooling, physical run performed; RMS 3.49 mm — re-calibration for accuracy planned) |
 | 8 | Image-to-robot coordinates | Validated pixel→mm transformation accuracy | **✅ Done** (2026-10-03) — real-world pixel→robot conversion tested by user; accuracy optimization deferred to a future calibrate.py run |
 | 9 | Pick target generation | Strategy selection, workspace bounds, no duplicate/invalid targets | **✅ Done** (2026-10-03) — cross-frame dedup by robot-space location, single target in flight, pick cooldown + failed-pick re-offer |
-| 10 | Robot communication | asyncua OPC UA server, node handshake, mock-client tests | **✅ Done** (2026-09-05) — `communication/opcua_server.py`, port 5000, Int32/Float/Boolean nodes only, 7 client-integration tests incl. full pick handshake |
+| 10 | Robot communication | asyncua OPC UA server, node handshake, mock-client tests | **✅ Done** (2026-09-05) — `communication/opcua_server.py`, port 5000, Int32/Double/Boolean nodes only, 7 client-integration tests incl. full pick handshake |
 | 11 | End-to-end integration | Full camera→robot chain incl. web dashboard | 🔶 Software E2E done (2026-10-03): full chain validated in an automated test (replay camera → detection → dedup → OPC UA ← simulated robot client, request mode). OPC UA server also live-tested with UaExpert. Physical run with camera + robot pending |
 | 12 | Validation & optimization | Accuracy/latency/repeatability measurements documented | ⬜ Not started |
 | 13 | Web package separation + control channel | `src/webapp/` standalone package, AppControl contract, supervisor with web-triggered restart, config read/validate/save API | **✅ Done** (2026-10-03) |
 | 14 | Web config editor page | Form + raw YAML tabs, save → restart-required banner → restart button | **✅ Done** (2026-10-03) — full cycle validated live: edit → save → banner → restart → pipeline rebuilt with fresh config |
 | 15 | Communication introspection backend | `CommunicationInfo` via AppControl: endpoint URLs, nodes, clients, live values | **✅ Done** (2026-10-03) — live server introspection incl. transport-level client tracking |
 | 16 | Communication dashboard page | Connection card, node table, clients, live handshake monitor | **✅ Done** (2026-10-03) — validated live: request-mode handshake visible, 2 clients tracked, copyable connect URLs per interface |
+| 17 | Cross-platform camera backend | `backend: auto` resolves per OS (DirectShow on Windows, V4L2 on Linux); probing uses OS default | **✅ Done** (2026-10-04) — 6 backend-resolution tests; Windows behavior unchanged |
+| 18 | Per-machine local config | `config/local/<name>.yaml` overlay (gitignored), calibration + backups untracked, web editor saves to local | **✅ Done** (2026-10-04) — merge precedence + API tests |
+| 19 | Pinned deps + setup scripts | `requirements.lock`, `scripts/setup.sh` / `setup.ps1`, `.gitattributes` LF for shell scripts | **✅ Done** (2026-10-04) — setup.ps1 validated on Windows; one lock for all platforms (aarch64 wheels available) |
+| 20 | Linux/Pi deployment validation | Fresh clone → setup → tests → live run on Pi/Ubuntu; DEPLOYMENT.md | 🔶 Docs done (2026-10-04); physical validation on a Linux/Pi machine pending |
 
 Legend: ✅ done · 🔶 partially done · ⬜ not started
 
 ## Next Steps
 
-1. **M11 physical run**: reconnect the camera, set `communication.interface: opcua`,
+1. **M20 validation**: on a Raspberry Pi / Linux PC, fresh clone →
+   `bash scripts/setup.sh` → `pytest -m "not hardware"` → `camera_check.py --list`
+   → `main.py` with web UI + OPC UA reachable; measure detection FPS on the Pi.
+2. **M11 physical run**: reconnect the camera, set `communication.interface: opcua`,
    run `python main.py`, drive the cycle from the robot (or UaExpert as stand-in).
 2. Re-run `scripts/calibrate.py` with more, wider-spread markers to improve the
    3.49 mm RMS (optimization deferred by user decision).

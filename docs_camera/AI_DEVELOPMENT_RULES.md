@@ -74,6 +74,7 @@ same change**:
 | Detection/processing behaviour | VISION_PIPELINE.md |
 | Coordinate conventions/calibration | COORDINATE_SYSTEM.md |
 | Robot communication | ROBOT_INTERFACE.md |
+| Pipeline stages or algorithms changed | `webapp/flow_definition.py` (the /workflow page content) |
 | Milestone progress | MILESTONES.md (status column) |
 | New failure modes | TROUBLESHOOTING.md |
 

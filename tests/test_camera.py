@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import time
 
+import cv2
 import numpy as np
 import pytest
 
 from vision_system.camera.base import CameraError, CameraInterface
 from vision_system.camera.manager import CameraManager, create_camera
+from vision_system.camera.usb_camera import default_backend_name, resolve_backend
 from vision_system.config.models import CameraConfig
 from vision_system.models.data import FrameData
 
@@ -76,6 +78,31 @@ def test_stop_is_clean() -> None:
     manager.start()
     manager.stop()
     assert not manager.is_running()
+
+
+class TestBackendResolution:
+    def test_auto_resolves_to_dshow_on_windows(self) -> None:
+        assert default_backend_name("win32") == "dshow"
+
+    def test_auto_resolves_to_v4l2_on_linux(self) -> None:
+        assert default_backend_name("linux") == "v4l2"
+
+    def test_auto_stays_auto_elsewhere(self) -> None:
+        assert default_backend_name("darwin") == "auto"
+
+    def test_resolve_auto_uses_os_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("vision_system.camera.usb_camera.sys.platform", "linux")
+        assert resolve_backend("auto") == cv2.CAP_V4L2
+        monkeypatch.setattr("vision_system.camera.usb_camera.sys.platform", "win32")
+        assert resolve_backend("auto") == cv2.CAP_DSHOW
+
+    def test_resolve_explicit_backend(self) -> None:
+        assert resolve_backend("dshow") == cv2.CAP_DSHOW
+        assert resolve_backend("v4l2") == cv2.CAP_V4L2
+
+    def test_resolve_unknown_backend_raises(self) -> None:
+        with pytest.raises(CameraError, match="Unknown camera backend"):
+            resolve_backend("bogus")
 
 
 def test_unknown_camera_type_rejected() -> None:

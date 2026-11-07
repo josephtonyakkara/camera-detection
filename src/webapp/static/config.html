@@ -34,6 +34,13 @@
     }
     textarea.raw { min-height: 320px; white-space: pre; }
     .hint { color: #6b7280; font-size: .72rem; }
+    .origin { font-size: .65rem; padding: .1rem .4rem; border-radius: 999px; margin-left: .4rem; }
+    .origin.local { background: #78350f; color: #fde68a; }
+    .origin.base { background: #1e3a8a; color: #bfdbfe; }
+    .origin.default { background: #374151; color: #9ca3af; }
+    button.unset { background: transparent; border: 1px solid #78350f; color: #fbbf24; border-radius: 4px; cursor: pointer; font-size: .65rem; padding: .05rem .35rem; margin-left: .3rem; }
+    details { margin-top: .6rem; } summary { color: #9aa4b2; font-size: .8rem; cursor: pointer; }
+    textarea.base-view { opacity: .6; }
     .msg { margin-top: .75rem; font-size: .85rem; padding: .45rem .7rem; border-radius: 6px; display: none; }
     .msg.ok { display: block; background: #14532d; color: #86efac; }
     .msg.err { display: block; background: #581c1c; color: #fca5a5; white-space: pre-wrap; }
@@ -45,6 +52,9 @@
     <a href="/">Live</a>
     <a href="/config" class="active">Configuration</a>
     <a href="/communication">Communication</a>
+    <a href="/logs">Logs</a>
+    <a href="/statemachine">State</a>
+    <a href="/workflow">Workflow</a>
   </nav>
   <h1>Configuration</h1>
 
@@ -63,8 +73,12 @@
   <div class="editor">
     <div id="form-view"></div>
     <div id="raw-view" style="display:none">
+      <div class="hint" style="margin-bottom:.3rem">Editing the machine-local override file (config/local/). Keys here win over the base file.</div>
       <textarea id="raw-text" class="raw" spellcheck="false"></textarea>
-      <div class="hint">Raw mode preserves comments. Form save rewrites the file without comments.</div>
+      <details>
+        <summary>Base file (read-only, shared via git)</summary>
+        <textarea id="base-text" class="raw base-view" spellcheck="false" readonly></textarea>
+      </details>
     </div>
     <div class="actions">
       <button id="save-btn">Save</button>
@@ -98,13 +112,17 @@
     function inputFor(section, field) {
       const id = `f_${section}_${field.name}`;
       const value = field.current;
+      const badge = `<span class="origin ${field.origin}">${field.origin}</span>` +
+        (field.origin === 'local'
+          ? `<button class="unset" title="Remove local override" data-sec="${section}" data-key="${field.name}">×</button>`
+          : '');
       if (field.type === 'bool')
-        return `<input type="checkbox" id="${id}" ${value ? 'checked' : ''}>`;
+        return `<span><input type="checkbox" id="${id}" ${value ? 'checked' : ''}>${badge}</span>`;
       if (field.type === 'int' || field.type === 'float')
-        return `<input type="number" id="${id}" step="${field.type === 'int' ? 1 : 'any'}" value="${value ?? ''}">`;
+        return `<span><input type="number" id="${id}" step="${field.type === 'int' ? 1 : 'any'}" value="${value ?? ''}" style="width:70%">${badge}</span>`;
       if (field.type.startsWith('dict'))
-        return `<input type="text" id="${id}" value='${JSON.stringify(value ?? {})}'> <span class="hint">JSON</span>`;
-      return `<input type="text" id="${id}" value="${value ?? ''}">`;
+        return `<span><input type="text" id="${id}" value='${JSON.stringify(value ?? {})}' style="width:70%">${badge} <span class="hint">JSON</span></span>`;
+      return `<span><input type="text" id="${id}" value="${value ?? ''}" style="width:70%">${badge}</span>`;
     }
 
     function renderEditor() {
@@ -117,7 +135,20 @@
             ${inputFor(sec, f)}
           </div>`).join('')
       ).join('');
-      $('raw-text').value = configs[activeFile]?.raw || '';
+      $('form-view').querySelectorAll('button.unset').forEach(b =>
+        b.onclick = () => removeOverride(b.dataset.sec, b.dataset.key));
+      $('raw-text').value = configs[activeFile]?.local_raw || '';
+      $('base-text').value = configs[activeFile]?.base_raw || '(no base file)';
+    }
+
+    async function removeOverride(section, key) {
+      const res = await fetch(
+        `/api/config/${activeFile}/override?key=${encodeURIComponent(key)}&section=${encodeURIComponent(section)}`,
+        { method: 'DELETE' });
+      if (res.ok) {
+        showMsg('ok', `Local override '${key}' removed. Restart required.`);
+        await loadAll(); pollSystem();
+      } else showMsg('err', (await res.json()).detail || 'Remove failed');
     }
 
     function coerce(field, el) {
@@ -129,12 +160,17 @@
     }
 
     function gatherForm() {
+      // submit only values that differ from the effective config, so unchanged
+      // fields never become local overrides
       const values = {};
       for (const [sec, fields] of Object.entries(schema[activeFile])) {
-        const target = sec ? (values[sec] = {}) : values;
         for (const f of fields) {
           const el = $(`f_${sec}_${f.name}`);
-          if (el) target[f.name] = coerce(f, el);
+          if (!el) continue;
+          const value = coerce(f, el);
+          if (JSON.stringify(value) === JSON.stringify(f.current)) continue;
+          const target = sec ? (values[sec] = values[sec] || {}) : values;
+          target[f.name] = value;
         }
       }
       return values;
@@ -146,14 +182,15 @@
       try {
         body = rawMode ? { raw: $('raw-text').value } : { values: gatherForm() };
       } catch (e) { return showMsg('err', 'Invalid JSON in a dict field: ' + e.message); }
+      if (!rawMode && Object.keys(body.values).length === 0)
+        return showMsg('ok', 'No changes to save.');
       const res = await fetch(`/api/config/${activeFile}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) return showMsg('err', data.detail || 'Save failed');
-      showMsg('ok', `${activeFile}.yaml saved. Restart required for these changes to be implemented.`);
-      configs = await fetch('/api/config').then(r => r.json());
-      renderEditor();
+      showMsg('ok', `Saved to config/local/${activeFile}.yaml. Restart required for these changes to be implemented.`);
+      await loadAll();
       pollSystem();
     }
 

@@ -6,11 +6,15 @@ import logging
 import logging.handlers
 from pathlib import Path
 
+from vision_system.models.log_buffer import LogBuffer
+
 _FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 
 
-def setup_logging(level: str = "INFO", log_dir: Path | None = None) -> None:
-    """Configure root logging with console and optional rotating file output.
+def setup_logging(
+    level: str = "INFO", log_dir: Path | None = None, buffer: LogBuffer | None = None
+) -> None:
+    """Configure root logging with console, optional rotating file, and web buffer.
 
     Safe to call once at application start; repeated calls reset handlers.
     """
@@ -29,3 +33,6 @@ def setup_logging(level: str = "INFO", log_dir: Path | None = None) -> None:
         )
         file_handler.setFormatter(logging.Formatter(_FORMAT))
         root.addHandler(file_handler)
+
+    if buffer is not None:
+        root.addHandler(buffer)

@@ -3,6 +3,41 @@
 All meaningful project changes, newest first. Every entry must state the
 reason, not only what changed.
 
+## 2026-10-04 (Milestones 17–19 + 20 docs: cross-platform portability)
+
+### Added
+- `default_backend_name()` / `resolve_backend()` in `camera/usb_camera.py`:
+  `backend: auto` now resolves per OS — DirectShow on Windows, V4L2 on Linux.
+  `enumerate_usb_cameras` probes with the OS default instead of hardcoded
+  DirectShow (was Windows-only). `config/camera.yaml` default is now `auto`.
+- Per-machine config overlay: the loader merges `config/local/<name>.yaml`
+  (gitignored) over each base file, nested sections included
+  (`read_config_data`). The web config editor reads merged values and saves
+  to `config/local/` only, so UI edits never dirty the git tree.
+- `requirements.lock` (exact pins, same file for Windows/Linux/aarch64) and
+  idempotent setup scripts `scripts/setup.sh` + `scripts/setup.ps1`
+  (Python ≥ 3.11 check, venv, pinned install, `config/local/` + `logs/`
+  creation, import smoke test). `.gitattributes` keeps `*.sh` LF on Windows
+  checkouts.
+- `docs_camera/DEPLOYMENT.md`: new-machine checklist, per-OS notes
+  (video group, libgl1, firewall ports, reserved Windows ports).
+
+### Changed
+- `calibration/homography.yaml` and `*.yaml.bak` untracked from git (remain
+  on disk): calibration is camera-mount-specific; each machine produces its
+  own via `scripts/calibrate.py`.
+
+### Reason
+- User requirement: run the repo on multiple machines (Raspberry Pi,
+  Ubuntu/Debian, Windows) via git clone + setup script, with machine-specific
+  state (camera index, ports, calibration) kept out of version control.
+
+### Validated
+- 93 tests passing (6 new backend-resolution, 4 new overlay, updated config
+  API tests). `setup.ps1` executed successfully on the Windows dev machine.
+  Physical Linux/Pi validation tracked as M20 remainder.
+
+
 ## 2026-10-03 (Milestones 15 + 16)
 
 ### Added
@@ -172,7 +207,7 @@ reason, not only what changed.
 - `communication/opcua_server.py`: `OpcUaRobotServer` — embedded asyncua OPC
   UA server (vision board = server, robot = polling client) on
   `opc.tcp://0.0.0.0:5000`. Nodes under Objects/VisionSystem: TargetX/Y/Z
-  (Float), TargetId/DetectedCount/StatusCode (Int32), TargetReady/
+  (Double), TargetId/DetectedCount/StatusCode (Int32), TargetReady/
   PickComplete (Boolean) — no String nodes (robot supports Bool/Int/Real
   only). Pick handshake: TargetReady=True → robot writes PickComplete=True →
   server resets flags. NoSecurity policy + NodeId 2735/2267 compatibility

@@ -57,3 +57,43 @@ def test_invalid_yaml_rejected(tmp_path: Path) -> None:
     (tmp_path / "system.yaml").write_text("log_level: [unclosed\n")
     with pytest.raises(ConfigError):
         load_config(tmp_path)
+
+
+def test_local_override_wins_over_base(tmp_path: Path) -> None:
+    (tmp_path / "camera.yaml").write_text("device_index: 0\nbackend: dshow\nfps: 30\n")
+    local = tmp_path / "local"
+    local.mkdir()
+    (local / "camera.yaml").write_text("device_index: 2\nbackend: v4l2\n")
+    cfg = load_config(tmp_path)
+    assert cfg.camera.device_index == 2
+    assert cfg.camera.backend == "v4l2"
+    assert cfg.camera.fps == 30  # base value survives for keys not overridden
+
+
+def test_local_override_merges_nested_sections(tmp_path: Path) -> None:
+    (tmp_path / "robot.yaml").write_text(
+        "pick_z: -42.0\nworkspace:\n  x_min: -10\n  x_max: 10\n"
+    )
+    local = tmp_path / "local"
+    local.mkdir()
+    (local / "robot.yaml").write_text("workspace:\n  x_max: 99\n")
+    cfg = load_config(tmp_path)
+    assert cfg.robot.pick_z == -42.0
+    assert cfg.robot.workspace.x_min == -10
+    assert cfg.robot.workspace.x_max == 99
+
+
+def test_local_override_without_base_file(tmp_path: Path) -> None:
+    local = tmp_path / "local"
+    local.mkdir()
+    (local / "vision.yaml").write_text("active_part: square_part\n")
+    cfg = load_config(tmp_path)
+    assert cfg.vision.active_part == "square_part"
+
+
+def test_local_override_unknown_key_rejected(tmp_path: Path) -> None:
+    local = tmp_path / "local"
+    local.mkdir()
+    (local / "camera.yaml").write_text("device_idx: 1\n")
+    with pytest.raises(ConfigError, match="device_idx"):
+        load_config(tmp_path)
