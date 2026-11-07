@@ -172,7 +172,7 @@ reason, not only what changed.
 - `communication/opcua_server.py`: `OpcUaRobotServer` — embedded asyncua OPC
   UA server (vision board = server, robot = polling client) on
   `opc.tcp://0.0.0.0:5000`. Nodes under Objects/VisionSystem: TargetX/Y/Z
-  (Double), TargetId/DetectedCount/StatusCode (Int32), TargetReady/
+  (Float), TargetId/DetectedCount/StatusCode (Int32), TargetReady/
   PickComplete (Boolean) — no String nodes (robot supports Bool/Int/Real
   only). Pick handshake: TargetReady=True → robot writes PickComplete=True →
   server resets flags. NoSecurity policy + NodeId 2735/2267 compatibility

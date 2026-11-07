@@ -9,6 +9,7 @@ from __future__ import annotations
 import time
 
 import pytest
+from asyncua import ua
 from asyncua.sync import Client
 
 from vision_system.communication.base import RobotError
@@ -81,6 +82,7 @@ def test_server_starts_ready(server, client) -> None:
 
 def test_target_published_with_correct_types(server, client) -> None:
     server.send_pick_target(make_target(42))
+    assert client["TargetX"].read_data_value().Value.VariantType is ua.VariantType.Float
     assert client["TargetX"].read_value() == pytest.approx(120.5)
     assert client["TargetY"].read_value() == pytest.approx(-35.25)
     assert client["TargetZ"].read_value() == pytest.approx(-50.0)
@@ -184,7 +186,7 @@ def test_communication_info_running(server, client) -> None:
     }
     target_x = next(n for n in info.nodes if n.browse_name == "TargetX")
     assert target_x.node_id.startswith("ns=2;")
-    assert target_x.data_type == "Double"
+    assert target_x.data_type == "Float"
     assert target_x.writer == "vision"
     # the test client fixture is connected and must appear at transport level
     assert any(c.address.startswith("127.0.0.1") for c in info.clients)

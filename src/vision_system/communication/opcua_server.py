@@ -12,9 +12,9 @@ status is exposed as an Int32 code instead of a String.
 Node layout (namespace from communication.opcua.namespace):
 
     Objects/VisionSystem/
-        TargetX        Double   mm, written by vision
-        TargetY        Double   mm, written by vision
-        TargetZ        Double   mm, written by vision
+        TargetX        Float    mm, written by vision
+        TargetY        Float    mm, written by vision
+        TargetZ        Float    mm, written by vision
         TargetId       Int32    written by vision
         TargetRequest  Boolean  robot sets True to request a target (request mode)
         TargetReady    Boolean  vision sets True when a new target is valid
@@ -60,9 +60,9 @@ STATUS_TARGET_READY = 2
 
 # node -> (OPC UA type, which side writes it)
 _NODE_META: dict[str, tuple[str, str]] = {
-    "TargetX": ("Double", "vision"),
-    "TargetY": ("Double", "vision"),
-    "TargetZ": ("Double", "vision"),
+    "TargetX": ("Float", "vision"),
+    "TargetY": ("Float", "vision"),
+    "TargetZ": ("Float", "vision"),
     "TargetId": ("Int32", "vision"),
     "TargetRequest": ("Boolean", "robot"),
     "TargetReady": ("Boolean", "vision"),
@@ -265,9 +265,9 @@ class OpcUaRobotServer(RobotInterface):
         vision = await server.get_objects_node().add_object(idx, "VisionSystem")
         # robot client supports only Boolean/Int/Real types (no String)
         spec = {
-            "TargetX": ua.Variant(0.0, ua.VariantType.Double),
-            "TargetY": ua.Variant(0.0, ua.VariantType.Double),
-            "TargetZ": ua.Variant(0.0, ua.VariantType.Double),
+            "TargetX": ua.Variant(0.0, ua.VariantType.Float),
+            "TargetY": ua.Variant(0.0, ua.VariantType.Float),
+            "TargetZ": ua.Variant(0.0, ua.VariantType.Float),
             "TargetId": ua.Variant(0, ua.VariantType.Int32),
             "TargetRequest": ua.Variant(False, ua.VariantType.Boolean),
             "TargetReady": ua.Variant(False, ua.VariantType.Boolean),
@@ -310,9 +310,9 @@ class OpcUaRobotServer(RobotInterface):
 
     async def _publish_target(self, target: PickTarget) -> None:
         coord = target.coordinate
-        await self._nodes["TargetX"].write_value(ua.Variant(float(coord.x), ua.VariantType.Double))
-        await self._nodes["TargetY"].write_value(ua.Variant(float(coord.y), ua.VariantType.Double))
-        await self._nodes["TargetZ"].write_value(ua.Variant(float(coord.z), ua.VariantType.Double))
+        await self._nodes["TargetX"].write_value(ua.Variant(float(coord.x), ua.VariantType.Float))
+        await self._nodes["TargetY"].write_value(ua.Variant(float(coord.y), ua.VariantType.Float))
+        await self._nodes["TargetZ"].write_value(ua.Variant(float(coord.z), ua.VariantType.Float))
         await self._nodes["TargetId"].write_value(
             ua.Variant(int(target.target_id), ua.VariantType.Int32)
         )

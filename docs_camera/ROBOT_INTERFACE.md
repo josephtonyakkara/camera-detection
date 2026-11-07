@@ -42,9 +42,9 @@ Endpoint: `opc.tcp://0.0.0.0:5000` (config `communication.opcua.endpoint`).
 
 ```
 Objects/VisionSystem/
-├── TargetX          Double  (mm)  ─ written by vision
-├── TargetY          Double  (mm)  ─ written by vision
-├── TargetZ          Double  (mm)  ─ written by vision
+├── TargetX          Float   (mm)  ─ written by vision
+├── TargetY          Float   (mm)  ─ written by vision
+├── TargetZ          Float   (mm)  ─ written by vision
 ├── TargetId         Int32         ─ written by vision
 ├── TargetRequest    Boolean       ─ robot sets True to request a target (request mode)
 ├── TargetReady      Boolean       ─ vision sets True when a new target is valid
